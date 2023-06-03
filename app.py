@@ -1,11 +1,10 @@
 from flask import Flask, render_template, request
 import os
 import torch
-import torchvision
+import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
-import uuid
 
 app = Flask(__name__)
 
@@ -14,8 +13,8 @@ class_labels = [
     "dog", "frog", "horse", "ship", "truck"
 ]
 
-
-model = torchvision.models.resnet18(pretrained=True)
+model = models.resnet50(pretrained=True)
+model.fc = torch.nn.Linear(2048, 10)
 model.eval()
 
 transform = transforms.Compose([
@@ -31,11 +30,6 @@ def upload_file():
             image_classes = {}
             
             for image in request.files.getlist('images'):
-                # Generate a unique name for the image
-                unique_name = str(uuid.uuid4())
-                file_ext = image.filename.rsplit('.', 1)[1].lower()
-                file_name = f"{unique_name}.{file_ext}"
-
                 # Preprocess the image
                 img = Image.open(image)
                 img = transform(img)
@@ -50,11 +44,12 @@ def upload_file():
                 predicted_class_idx = np.argmax(probabilities)
                 predicted_class = class_labels[predicted_class_idx]
 
-                # Save the image to the static folder with the unique name
-                image.save(os.path.join('static', file_name))
+                # Save the image to the static folder with the original name
+                image_path = os.path.join('static', image.filename)
+                image.save(image_path)
 
                 # Record the image class
-                image_classes[file_name] = predicted_class
+                image_classes[image.filename] = predicted_class
                 
             # Return the image names and their respective classes
             return render_template('form.html', image_classes=image_classes)
